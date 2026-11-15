@@ -1,0 +1,29 @@
+# Build output
+/target/
+/build/
+/.gradle/
+/out/
+*.class
+
+# IDE files
+/.idea/
+*.iml
+/.classpath
+/.project
+/.settings/
+/.factorypath
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and JVM crash dumps
+*.log
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# Operating system files
+.DS_Store
+Thumbs.db
