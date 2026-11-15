@@ -33,6 +33,20 @@ Spring AI provides abstractions that serve as the foundation for developing AI a
 
 This feature set lets you implement common use cases, such as “Q&A over your documentation” or “Chat with your documentation.”
 
+## Spring AI Series — Day 2: AI Concepts
+
+Today’s focus is on the core concepts behind AI applications and how Spring AI helps bring them together. See the [Spring AI concepts guide](https://docs.spring.io/spring-ai/reference/concepts.html) for the full explanation.
+
+- **Models** process inputs and produce outputs such as text, images, audio, or embeddings. Different model types suit different tasks.
+- **Prompts** provide the instructions and context sent to a model. Chat prompts can contain multiple messages with different roles, such as system instructions and user input. **Prompt templates** make prompts reusable by filling placeholders with application data.
+- **Embeddings** represent content as vectors. Comparing vectors helps find semantically similar content, which is useful for semantic search and Retrieval Augmented Generation (RAG).
+- **Tokens and context windows** affect how much content a model can process in one request. Hosted model usage may also be billed by token, so applications should manage prompt and response size.
+- **Structured output** turns model responses into application-friendly data structures, rather than relying on unvalidated text that merely looks like JSON.
+- **Connecting models to application data and APIs** can be done with RAG or tool calling. RAG retrieves relevant content and includes it with a user’s prompt; tool calling lets a model request that the application invoke registered functions or services.
+- **Response evaluation** helps assess whether a generated answer is relevant and consistent with the user’s request and supporting context.
+
+These concepts provide the foundation for building Spring AI applications that can work with your data and services—not just generate text.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
