@@ -1,5 +1,6 @@
 package com.example.springaizerotohero.config;
 
+import com.example.springaizerotohero.advisor.ReReadingAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ public class ChatClientConfig {
     ChatClient chatClient(ChatClient.Builder builder) {
         return builder
                 .defaultSystem("You are a helpful assistant. Give clear, concise answers.")
+                .defaultAdvisors(new ReReadingAdvisor())
                 .build();
     }
 }

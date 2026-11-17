@@ -166,8 +166,41 @@ The fluent API can also set system or user prompts per request, fill prompt-temp
 
    The response is JSON with an `answer` field. The model defaults to `llama3.2`; override it with `OLLAMA_MODEL`. Set `OLLAMA_BASE_URL` if Ollama is running somewhere other than `http://localhost:11434`.
 
+## Spring AI Series — Day 4: Advisors API
+
+Today’s focus is Spring AI’s **Advisors API**: reusable components that inspect, transform, or enrich a request before it reaches the model and can process the response on its way back. Advisors let an application add common AI patterns without embedding that logic in every controller or service.
+
+### How the advisor chain works
+
+The `ChatClient` creates a request from the prompt and invokes registered advisors in order. Advisors can modify the request or stop the chain; the final step sends the request to the chat model. The response then passes back through the advisors in reverse order. Lower `getOrder()` values run earlier for request processing and later for response processing.
+
+Spring AI has separate `CallAdvisor` and `StreamAdvisor` contracts. `BaseAdvisor` provides before/after hooks for advisors that should support both synchronous calls and streaming. Keep advisors focused, and use the shared advisor context when one advisor needs to pass state to another.
+
+### Implementing RE2 as a custom advisor
+
+This project registers [`ReReadingAdvisor`](./src/main/java/com/example/springaizerotohero/advisor/ReReadingAdvisor.java) as a default advisor in [`ChatClientConfig`](./src/main/java/com/example/springaizerotohero/config/ChatClientConfig.java). Before the model call, it repeats the question using the RE2 prompt pattern:
+
+```text
+What does a Spring AI advisor do?
+Read the question again: What does a Spring AI advisor do?
+```
+
+The custom advisor implements `BaseAdvisor`, updates the user message in `before()`, leaves the response unchanged in `after()`, and sets its order to `0`. Register it with `defaultAdvisors()` so it participates in each call made by this `ChatClient`. This is a learning example; remove or change it if you do not want query repetition in normal chat requests.
+
+### Built-in advisors
+
+Spring AI also provides reusable advisors for common patterns:
+
+- **Chat memory advisors**, such as `MessageChatMemoryAdvisor`, add conversation history to prompts. Pass a conversation ID on each request to keep conversations separate.
+- **Question-answer and retrieval advisors**, such as `QuestionAnswerAdvisor` and `RetrievalAugmentationAdvisor`, retrieve relevant documents from a vector store and add context for RAG. These require a configured vector store and are not enabled in this Ollama starter.
+- **`SafeGuardAdvisor`** can help guard model output, and **`ToolCallingAdvisor`** supports tool execution as part of the advisor chain.
+
+Register applicable advisors at `ChatClient` build time with `defaultAdvisors()` or add request-specific advisors through the fluent API. For streaming, an advisor must correctly implement `StreamAdvisor`; use `BaseAdvisor` when the same before/after behavior is suitable for both streaming and non-streaming flows.
+
+The [`ReReadingAdvisorTest`](./src/test/java/com/example/springaizerotohero/advisor/ReReadingAdvisorTest.java) verifies the transformed prompt without requiring Ollama to be running.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
 
-Continue with the [Spring AI Getting Started guide](https://docs.spring.io/spring-ai/reference/getting-started.html) to create your first AI application. Subsequent sections explore each component and common use cases with a code-focused approach.
+Continue with the [Spring AI Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors.html) for the full API details, then use the [Spring AI Getting Started guide](https://docs.spring.io/spring-ai/reference/getting-started.html) to explore more components and common use cases.
