@@ -2,6 +2,7 @@ package com.example.springaizerotohero.controller;
 
 import com.example.springaizerotohero.dto.ChatRequest;
 import com.example.springaizerotohero.dto.ChatResponse;
+import com.example.springaizerotohero.dto.StructuredAnswer;
 import com.example.springaizerotohero.service.ChatService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,5 +23,10 @@ public class ChatController {
     @PostMapping
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
         return new ChatResponse(chatService.chat(request.message()));
+    }
+
+    @PostMapping("/structured")
+    public StructuredAnswer structuredChat(@Valid @RequestBody ChatRequest request) {
+        return chatService.structuredChat(request.message());
     }
 }

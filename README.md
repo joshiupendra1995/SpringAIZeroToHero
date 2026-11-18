@@ -199,8 +199,34 @@ Register applicable advisors at `ChatClient` build time with `defaultAdvisors()`
 
 The [`ReReadingAdvisorTest`](./src/test/java/com/example/springaizerotohero/advisor/ReReadingAdvisorTest.java) verifies the transformed prompt without requiring Ollama to be running.
 
+## Spring AI Series — Day 5: Recursive Advisors
+
+Today’s focus is **recursive advisors**: advisors that call the downstream advisor chain more than once during a single request. A recursive advisor can retry a model call with a corrected prompt, repeat tool execution until no further tools are needed, or evaluate and refine an answer. `CallAdvisorChain.copy(this)` creates a sub-chain containing the advisors after the current advisor; calling that sub-chain again avoids rerunning advisors that already ran before it.
+
+### Structured output validation and retries
+
+This project adds a second `ChatClient` dedicated to structured output. Its [`StructuredOutputValidationAdvisor`](./src/main/java/com/example/springaizerotohero/config/ChatClientConfig.java) derives a JSON schema from [`StructuredAnswer`](./src/main/java/com/example/springaizerotohero/dto/StructuredAnswer.java), validates the model response, and retries invalid output up to three times with validation feedback. This demonstrates a built-in recursive advisor while keeping the original `/api/chat` endpoint's free-form behavior unchanged.
+
+Try it with Ollama running:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/structured \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain what a Spring AI advisor does."}'
+```
+
+The endpoint returns a JSON object with `topic`, `summary`, and `keyPoints`. The model's output still needs runtime validation; structured output prompting alone is not a guarantee of valid data, which is why the validation advisor can retry.
+
+### Other recursive patterns and usage accounting
+
+- **`ToolCallingAdvisor`** manages the model/tool loop and is auto-registered by `ChatClient` when tools are present. This project does not register any tools yet, so the chat endpoints do not trigger tool execution.
+- **Custom recursive advisors** should use `CallAdvisorChain.copy(this)` to repeat only the downstream part of the advisor chain, preserving ordering and letting downstream advisors observe each iteration.
+- Every recursive model call can consume tokens. A custom advisor must accumulate usage across rounds and apply the cumulative total to its final response; Spring AI provides `UsageAccumulator` for this purpose. Built-in advisors should be preferred when they cover the required pattern.
+
+See the [Recursive Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors-recursive.html) for the full details on recursive chains, tool loops, validation retries, and token usage.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
 
-Continue with the [Spring AI Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors.html) for the full API details, then use the [Spring AI Getting Started guide](https://docs.spring.io/spring-ai/reference/getting-started.html) to explore more components and common use cases.
+Continue with the [Recursive Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors-recursive.html) and the [Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors.html), then use the [Spring AI Getting Started guide](https://docs.spring.io/spring-ai/reference/getting-started.html) to explore more components and common use cases.
