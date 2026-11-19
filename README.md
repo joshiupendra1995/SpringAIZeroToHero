@@ -225,6 +225,72 @@ The endpoint returns a JSON object with `topic`, `summary`, and `keyPoints`. The
 
 See the [Recursive Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors-recursive.html) for the full details on recursive chains, tool loops, validation retries, and token usage.
 
+## Spring AI Series — Day 6: Prompts
+
+Today’s focus is the Prompt API: how Spring AI represents instructions and conversation context as messages, and how reusable templates replace placeholders at runtime.
+
+### Prompt structure and message roles
+
+A `Prompt` is a collection of `Message` objects plus optional model options. Spring AI maps roles to `MessageType`:
+
+- `SYSTEM`: guides behavior and response style.
+- `USER`: contains the user's question or command.
+- `ASSISTANT`: represents model output and may contain tool-call requests.
+- `TOOL`: carries tool/function output back into the conversation.
+
+Spring AI also provides convenience methods such as `getUserMessage()`, `getSystemMessage()`, `getUserMessages()`, and `getSystemMessages()` for inspecting a prompt. The project demonstrates explicit role construction through [`PromptService`](./src/main/java/com/example/springaizerotohero/service/PromptService.java).
+
+Try the roles endpoint with Ollama running:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/roles \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain PromptTemplate briefly","name":"SpringAI Coach","voice":"a concise teacher"}'
+```
+
+The service builds a `SystemMessage` and `UserMessage` and passes both to `ChatClient`.
+
+### PromptTemplate
+
+`PromptTemplate` replaces placeholders in prompt text. The default renderer uses `{}` syntax:
+
+```java
+PromptTemplate template = PromptTemplate.builder()
+        .template("Tell me a {adjective} joke about {topic}")
+        .build();
+
+String prompt = template.render(Map.of(
+        "adjective", "clever",
+        "topic", "Spring AI"
+));
+```
+
+Call `/api/chat/template`:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/template \
+  -H "Content-Type: application/json" \
+  -d '{"message":"unused","adjective":"clever","topic":"Spring AI"}'
+```
+
+For JSON-heavy prompts, a custom `TemplateRenderer` can use delimiters such as `<` and `>` instead of `{}`. Spring AI's `NoOpTemplateRenderer` is available when no placeholder substitution is desired.
+
+### Prompt templates loaded from resources
+
+The project includes [`system-message.st`](./src/main/resources/prompts/system-message.st), loaded with Spring's `Resource` abstraction. `SystemPromptTemplate` fills `name` and `voice` placeholders and creates a system-role message:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/resource-template \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain message roles","name":"SpringAI Mentor","voice":"a patient teacher"}'
+```
+
+### Prompt engineering and tokens
+
+Effective prompts distinguish four concerns: clear instructions, relevant external context, the user input, and the expected output format. Zero-shot, few-shot, chain-of-thought, and ReAct techniques are useful approaches, but should be selected only when they fit the task.
+
+Prompts are converted into tokens. Input and output tokens may affect billing and model context-window limits. Keep prompts focused and avoid exceeding the selected model's context window. Models expose response metadata such as token usage; the application should account for it when monitoring cost and cumulative usage across recursive flows.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
