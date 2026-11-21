@@ -1,7 +1,12 @@
 package com.example.springaizerotohero.service;
 
+import com.example.springaizerotohero.dto.ChatMetadataResponse;
 import com.example.springaizerotohero.dto.StructuredAnswer;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.EmptyRateLimit;
+import org.springframework.ai.chat.metadata.RateLimit;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +28,37 @@ public class ChatService {
                 .user(message)
                 .call()
                 .content();
+    }
+
+    public ChatMetadataResponse chatWithMetadata(String message) {
+        var response = chatClient.prompt()
+                .user(message)
+                .call()
+                .chatResponse();
+
+        ChatResponseMetadata metadata = response.getMetadata();
+        Usage usage = metadata.getUsage();
+        RateLimit rateLimit = metadata.getRateLimit();
+
+        return new ChatMetadataResponse(
+                response.getResult().getOutput().getText(),
+                metadata.getId(),
+                metadata.getModel(),
+                new ChatMetadataResponse.ChatUsage(
+                                        usage.getPromptTokens(),
+                                        usage.getCompletionTokens(),
+                                        usage.getTotalTokens(),
+                                        usage.getCacheReadInputTokens(),
+                                        usage.getCacheWriteInputTokens()),
+                rateLimit instanceof EmptyRateLimit
+                        ? null
+                        : new ChatMetadataResponse.ChatRateLimit(
+                                rateLimit.getRequestsLimit(),
+                                rateLimit.getRequestsRemaining(),
+                                rateLimit.getRequestsReset(),
+                                rateLimit.getTokensLimit(),
+                                rateLimit.getTokensRemaining(),
+                                rateLimit.getTokensReset()));
     }
 
     public StructuredAnswer structuredChat(String message) {

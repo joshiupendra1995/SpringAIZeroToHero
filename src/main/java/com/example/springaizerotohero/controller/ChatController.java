@@ -1,5 +1,6 @@
 package com.example.springaizerotohero.controller;
 
+import com.example.springaizerotohero.dto.ChatMetadataResponse;
 import com.example.springaizerotohero.dto.ChatRequest;
 import com.example.springaizerotohero.dto.ChatResponse;
 import com.example.springaizerotohero.dto.PromptRequest;
@@ -27,6 +28,11 @@ public class ChatController {
     @PostMapping
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
         return new ChatResponse(chatService.chat(request.message()));
+    }
+
+    @PostMapping("/metadata")
+    public ChatMetadataResponse chatWithMetadata(@Valid @RequestBody ChatRequest request) {
+        return chatService.chatWithMetadata(request.message());
     }
 
     @PostMapping("/structured")

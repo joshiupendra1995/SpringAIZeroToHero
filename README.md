@@ -291,8 +291,24 @@ Effective prompts distinguish four concerns: clear instructions, relevant extern
 
 Prompts are converted into tokens. Input and output tokens may affect billing and model context-window limits. Keep prompts focused and avoid exceeding the selected model's context window. Models expose response metadata such as token usage; the application should account for it when monitoring cost and cumulative usage across recursive flows.
 
+## Spring AI Series — Day 7: Chat Response Metadata and Usage
+
+Today’s focus is reading provider metadata from a `ChatResponse`: response ID, model name, token usage, prompt-cache metrics, and rate-limit information. The project keeps the existing `POST /api/chat` response unchanged and exposes these details through `POST /api/chat/metadata`.
+
+```bash
+curl -X POST http://localhost:8080/api/chat/metadata \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain Spring AI in one sentence."}'
+```
+
+The response includes the answer, response ID and model, plus `usage` and `rateLimit` objects when the provider supplies those values. Usage contains prompt, completion, and total tokens, as well as unified cache-read and cache-write token counts. Rate-limit reset values are returned as durations. If a provider does not report usage or rate limits, the corresponding object is `null`; an `EmptyRateLimit` is treated as unavailable instead of reporting its zero-valued accessors as a real limit.
+
+The endpoint reads the full `ChatResponse` from `ChatClient` and maps stable, provider-neutral fields into the API response. Provider-specific usage details are intentionally not serialized; use `Usage.getNativeUsage()` inside application code when a provider-specific integration needs them. Availability depends on the selected model implementation. The sample uses Ollama, which may omit metrics that hosted providers expose.
+
+For multi-step calls such as tool loops or validation retries, use the cumulative usage reported by the final response. Custom recursive advisors must aggregate usage across iterations (for example with Spring AI's `UsageAccumulator`) rather than reporting only the last model call.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
 
-Continue with the [Recursive Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors-recursive.html) and the [Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors.html), then use the [Spring AI Getting Started guide](https://docs.spring.io/spring-ai/reference/getting-started.html) to explore more components and common use cases.
+Continue with the [usage handling guide](https://docs.spring.io/spring-ai/reference/api/usage-handling.html), the [Recursive Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors-recursive.html), and the [Advisors guide](https://docs.spring.io/spring-ai/reference/api/advisors.html), then use the [Spring AI Getting Started guide](https://docs.spring.io/spring-ai/reference/getting-started.html) to explore more components and common use cases.
