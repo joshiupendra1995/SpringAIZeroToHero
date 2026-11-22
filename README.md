@@ -203,7 +203,7 @@ The [`ReReadingAdvisorTest`](./src/test/java/com/example/springaizerotohero/advi
 
 Today’s focus is **recursive advisors**: advisors that call the downstream advisor chain more than once during a single request. A recursive advisor can retry a model call with a corrected prompt, repeat tool execution until no further tools are needed, or evaluate and refine an answer. `CallAdvisorChain.copy(this)` creates a sub-chain containing the advisors after the current advisor; calling that sub-chain again avoids rerunning advisors that already ran before it.
 
-Recursive advisors are useful when a request needs multiple model calls, such as a tool loop or an iterative refinement. This project covers schema validation and the built-in self-correction advisor in the Day 7 section.
+Recursive advisors are useful when a request needs multiple model calls, such as a tool loop or an iterative refinement. This project covers schema validation and the built-in self-correction advisor in the Day 8 section.
 
 ### Other recursive patterns and usage accounting
 
@@ -279,7 +279,23 @@ Effective prompts distinguish four concerns: clear instructions, relevant extern
 
 Prompts are converted into tokens. Input and output tokens may affect billing and model context-window limits. Keep prompts focused and avoid exceeding the selected model's context window. Models expose response metadata such as token usage; the application should account for it when monitoring cost and cumulative usage across recursive flows.
 
-## Spring AI Series — Day 7: Schema Validation and Self-Correction
+## Spring AI Series — Day 7: Chat Response Metadata and Usage
+
+Today’s focus is reading provider metadata from a `ChatResponse`: response ID, model name, token usage, prompt-cache metrics, and rate-limit information. The project keeps the existing `POST /api/chat` response unchanged and exposes these details through `POST /api/chat/metadata`.
+
+```bash
+curl -X POST http://localhost:8080/api/chat/metadata \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain Spring AI in one sentence."}'
+```
+
+The response includes the answer, response ID and model, plus `usage` and `rateLimit` objects when the provider supplies those values. Usage contains prompt, completion, and total tokens, as well as unified cache-read and cache-write token counts. Rate-limit reset values are returned as durations. If a provider does not report usage or rate limits, the corresponding object is `null`; an `EmptyRateLimit` is treated as unavailable instead of reporting its zero-valued accessors as a real limit.
+
+The endpoint reads the full `ChatResponse` from `ChatClient` and maps stable, provider-neutral fields into the API response. Provider-specific usage details are intentionally not serialized; use `Usage.getNativeUsage()` inside application code when a provider-specific integration needs them. Availability depends on the selected model implementation. The sample uses Ollama, which may omit metrics that hosted providers expose.
+
+For multi-step calls such as tool loops or validation retries, use the cumulative usage reported by the final response. Custom recursive advisors must aggregate usage across iterations (for example with Spring AI's `UsageAccumulator`) rather than reporting only the last model call.
+
+## Spring AI Series — Day 8: Schema Validation and Self-Correction
 
 Structured output asks the model to return data matching a target Java type, but the model can still return malformed JSON, omit a field, or include prose. Mapping alone is not a guarantee that the response conforms to the expected schema.
 
@@ -322,22 +338,6 @@ Use `outputJsonSchema(mySchema)` instead of `outputType(...)` when providing a s
 ```
 
 Provider-native output constrains the request where supported; schema validation remains a response-side check and can correct provider edge cases. The original `/api/chat` free-form endpoint is unchanged.
-
-## Spring AI Series — Day 8: Chat Response Metadata and Usage
-
-Today’s focus is reading provider metadata from a `ChatResponse`: response ID, model name, token usage, prompt-cache metrics, and rate-limit information. The project keeps the existing `POST /api/chat` response unchanged and exposes these details through `POST /api/chat/metadata`.
-
-```bash
-curl -X POST http://localhost:8080/api/chat/metadata \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Explain Spring AI in one sentence."}'
-```
-
-The response includes the answer, response ID and model, plus `usage` and `rateLimit` objects when the provider supplies those values. Usage contains prompt, completion, and total tokens, as well as unified cache-read and cache-write token counts. Rate-limit reset values are returned as durations. If a provider does not report usage or rate limits, the corresponding object is `null`; an `EmptyRateLimit` is treated as unavailable instead of reporting its zero-valued accessors as a real limit.
-
-The endpoint reads the full `ChatResponse` from `ChatClient` and maps stable, provider-neutral fields into the API response. Provider-specific usage details are intentionally not serialized; use `Usage.getNativeUsage()` inside application code when a provider-specific integration needs them. Availability depends on the selected model implementation. The sample uses Ollama, which may omit metrics that hosted providers expose.
-
-For multi-step calls such as tool loops or validation retries, use the cumulative usage reported by the final response. Custom recursive advisors must aggregate usage across iterations (for example with Spring AI's `UsageAccumulator`) rather than reporting only the last model call.
 
 ## Get started
 
