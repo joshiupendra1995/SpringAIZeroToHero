@@ -72,6 +72,6 @@ public class ChatService {
                         User request: %s
                         """.formatted(message))
                 .call()
-                .entity(StructuredAnswer.class);
+                .entity(StructuredAnswer.class, ChatClient.EntityParamSpec::validateSchema);
     }
 }

@@ -203,19 +203,7 @@ The [`ReReadingAdvisorTest`](./src/test/java/com/example/springaizerotohero/advi
 
 Today’s focus is **recursive advisors**: advisors that call the downstream advisor chain more than once during a single request. A recursive advisor can retry a model call with a corrected prompt, repeat tool execution until no further tools are needed, or evaluate and refine an answer. `CallAdvisorChain.copy(this)` creates a sub-chain containing the advisors after the current advisor; calling that sub-chain again avoids rerunning advisors that already ran before it.
 
-### Structured output validation and retries
-
-This project adds a second `ChatClient` dedicated to structured output. Its [`StructuredOutputValidationAdvisor`](./src/main/java/com/example/springaizerotohero/config/ChatClientConfig.java) derives a JSON schema from [`StructuredAnswer`](./src/main/java/com/example/springaizerotohero/dto/StructuredAnswer.java), validates the model response, and retries invalid output up to three times with validation feedback. This demonstrates a built-in recursive advisor while keeping the original `/api/chat` endpoint's free-form behavior unchanged.
-
-Try it with Ollama running:
-
-```bash
-curl -X POST http://localhost:8080/api/chat/structured \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Explain what a Spring AI advisor does."}'
-```
-
-The endpoint returns a JSON object with `topic`, `summary`, and `keyPoints`. The model's output still needs runtime validation; structured output prompting alone is not a guarantee of valid data, which is why the validation advisor can retry.
+Recursive advisors are useful when a request needs multiple model calls, such as a tool loop or an iterative refinement. This project covers schema validation and the built-in self-correction advisor in the Day 7 section.
 
 ### Other recursive patterns and usage accounting
 
@@ -291,7 +279,51 @@ Effective prompts distinguish four concerns: clear instructions, relevant extern
 
 Prompts are converted into tokens. Input and output tokens may affect billing and model context-window limits. Keep prompts focused and avoid exceeding the selected model's context window. Models expose response metadata such as token usage; the application should account for it when monitoring cost and cumulative usage across recursive flows.
 
-## Spring AI Series — Day 7: Chat Response Metadata and Usage
+## Spring AI Series — Day 7: Schema Validation and Self-Correction
+
+Structured output asks the model to return data matching a target Java type, but the model can still return malformed JSON, omit a field, or include prose. Mapping alone is not a guarantee that the response conforms to the expected schema.
+
+The `/api/chat/structured` endpoint maps the response to [`StructuredAnswer`](./src/main/java/com/example/springaizerotohero/dto/StructuredAnswer.java). In [`ChatService`](./src/main/java/com/example/springaizerotohero/service/ChatService.java), the `validateSchema()` option enables Spring AI's `StructuredOutputValidationAdvisor` for this call:
+
+```java
+.call()
+.entity(StructuredAnswer.class, spec -> spec.validateSchema());
+```
+
+Spring AI derives a JSON schema from the output type, validates the completed response, and returns the typed object when it passes. If validation fails, it adds the validation error to the prompt and asks the model to correct its response. The default allows up to three attempts. Streaming is not supported with this validation loop because the advisor needs the complete response before it can validate it.
+
+Try it with Ollama running:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/structured \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain what a Spring AI advisor does."}'
+```
+
+Use the auto-configured `validateSchema()` behavior for the default retry policy. For a custom policy or a schema supplied by the application, register an explicit advisor on the relevant `ChatClient`; an explicitly registered validation advisor replaces the auto-registered one:
+
+```java
+var validationAdvisor = StructuredOutputValidationAdvisor.builder()
+        .outputType(StructuredAnswer.class)
+        .maxRepeatAttempts(5)
+        .build();
+
+ChatClient chatClient = ChatClient.builder(chatModel)
+        .defaultAdvisors(validationAdvisor)
+        .build();
+```
+
+Use `outputJsonSchema(mySchema)` instead of `outputType(...)` when providing a schema string; those options are mutually exclusive. Validation uses JSON Schema Draft 2020-12. Provider-native structured output can complement this response-side validation:
+
+```java
+.entity(StructuredAnswer.class, spec -> spec
+        .useProviderStructuredOutput()
+        .validateSchema());
+```
+
+Provider-native output constrains the request where supported; schema validation remains a response-side check and can correct provider edge cases. The original `/api/chat` free-form endpoint is unchanged.
+
+## Spring AI Series — Day 8: Chat Response Metadata and Usage
 
 Today’s focus is reading provider metadata from a `ChatResponse`: response ID, model name, token usage, prompt-cache metrics, and rate-limit information. The project keeps the existing `POST /api/chat` response unchanged and exposes these details through `POST /api/chat/metadata`.
 
