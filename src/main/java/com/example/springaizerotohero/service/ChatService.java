@@ -74,4 +74,13 @@ public class ChatService {
                 .call()
                 .entity(StructuredAnswer.class, ChatClient.EntityParamSpec::validateSchema);
     }
+
+    public StructuredAnswer structuredChatWithProviderOutput(String message) {
+        return structuredChatClient.prompt()
+                .user(message)
+                .call()
+                .entity(StructuredAnswer.class, spec -> spec
+                        .useProviderStructuredOutput()
+                        .validateSchema());
+    }
 }

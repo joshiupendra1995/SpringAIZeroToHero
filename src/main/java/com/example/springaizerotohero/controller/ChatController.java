@@ -40,6 +40,11 @@ public class ChatController {
         return chatService.structuredChat(request.message());
     }
 
+    @PostMapping("/structured/native")
+    public StructuredAnswer structuredChatWithProviderOutput(@Valid @RequestBody ChatRequest request) {
+        return chatService.structuredChatWithProviderOutput(request.message());
+    }
+
     @PostMapping("/roles")
     public ChatResponse chatWithRoles(@Valid @RequestBody PromptRequest request) {
         String answer = promptService.chatWithRoles(request.message(), request.name(), request.voice());

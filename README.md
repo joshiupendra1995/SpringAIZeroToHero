@@ -339,6 +339,38 @@ Use `outputJsonSchema(mySchema)` instead of `outputType(...)` when providing a s
 
 Provider-native output constrains the request where supported; schema validation remains a response-side check and can correct provider edge cases. The original `/api/chat` free-form endpoint is unchanged.
 
+## Spring AI Series — Day 9: Provider-Native Structured Output
+
+Day 8 used response-side schema validation. Spring AI can also constrain the response request-side by sending the output schema to providers that support native structured output. This avoids adding JSON-format instructions to the prompt and lets the provider enforce the schema while generating the response.
+
+The `POST /api/chat/structured/native` endpoint demonstrates this with [`StructuredAnswer`](./src/main/java/com/example/springaizerotohero/dto/StructuredAnswer.java):
+
+```bash
+curl -X POST http://localhost:8080/api/chat/structured/native \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain what a Spring AI advisor does."}'
+```
+
+Its service call requests provider-native output and also enables schema validation as a response-side safeguard:
+
+```java
+.entity(StructuredAnswer.class, spec -> spec
+        .useProviderStructuredOutput()
+        .validateSchema());
+```
+
+`useProviderStructuredOutput()` is opt-in per call. Spring AI checks whether the model's chat options implement `StructuredOutputChatOptions`; if they do not, native output is ignored and the usual prompt-based conversion is used. It is off by default for compatibility with older and non-supporting models. The existing `/api/chat/structured` endpoint remains the prompt-based example.
+
+As of Spring AI 2.0, native structured output is available for supported model versions from OpenAI (GPT-4o and later), Anthropic (Claude 3.5 Sonnet and later), Google GenAI (Gemini 1.5 Pro and later), Mistral (Mistral Small and later), Ollama (model-dependent), and Qxotic jinfer. Capabilities and supported JSON Schema features vary by provider; `$ref`, deeply nested arrays, composition keywords (`allOf`, `anyOf`, `oneOf`), regex patterns, and recursive types may not be accepted. Keep `validateSchema()` when you also want application-side validation and correction retries.
+
+The example runs with Ollama, where native output reliability depends on the selected model. Some reasoning-oriented models may emit their reasoning as plain text rather than JSON, causing deserialization to fail. If this happens, try another structured-output-capable model (for example `llama3.1:latest`) or use the prompt-based `/api/chat/structured` endpoint instead.
+
+OpenAI's native Structured Outputs API does not accept a top-level array schema. For list output, wrap it in a record, such as `record FilmographyList(List<StructuredAnswer> answers) {}`, or use the prompt-based conversion. The default prompt-based flow has no top-level-array restriction.
+
+To opt in across calls, Spring AI also provides the `AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT` advisor parameter. Add it with `defaultAdvisors()` on a `ChatClient` builder, or pass it to `.advisors(...)` on an individual request. The per-call `useProviderStructuredOutput()` option remains useful when only a particular entity conversion should use the provider constraint.
+
+Provider-native schema enforcement is separate from provider-specific JSON modes. For example, OpenAI offers JSON Object and JSON Schema response formats, Ollama has a `spring.ai.ollama.chat.format=json` option, Qxotic jinfer can constrain output with a grammar, and Mistral supports JSON Object and JSON Schema response formats. These options have provider-specific configuration and behavior; use the portable Spring AI switch when you want capability detection through the common API.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
