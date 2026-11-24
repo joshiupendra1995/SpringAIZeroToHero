@@ -1,5 +1,8 @@
 package com.example.springaizerotohero.controller;
 
+import java.util.List;
+import java.util.Map;
+
 import com.example.springaizerotohero.dto.ChatMetadataResponse;
 import com.example.springaizerotohero.dto.ChatRequest;
 import com.example.springaizerotohero.dto.ChatResponse;
@@ -43,6 +46,21 @@ public class ChatController {
     @PostMapping("/structured/native")
     public StructuredAnswer structuredChatWithProviderOutput(@Valid @RequestBody ChatRequest request) {
         return chatService.structuredChatWithProviderOutput(request.message());
+    }
+
+    @PostMapping("/converters/bean")
+    public StructuredAnswer chatWithBeanConverter(@Valid @RequestBody ChatRequest request) {
+        return chatService.structuredChatWithConverter(request.message());
+    }
+
+    @PostMapping("/converters/list")
+    public List<String> chatWithListConverter(@Valid @RequestBody ChatRequest request) {
+        return chatService.listWithConverter(request.message());
+    }
+
+    @PostMapping("/converters/map")
+    public Map<String, Object> chatWithMapConverter(@Valid @RequestBody ChatRequest request) {
+        return chatService.mapWithConverter(request.message());
     }
 
     @PostMapping("/roles")

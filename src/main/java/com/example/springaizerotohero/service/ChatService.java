@@ -1,5 +1,9 @@
 package com.example.springaizerotohero.service;
 
+import java.util.List;
+import java.util.Map;
+
+import com.example.springaizerotohero.converter.LenientJsonOutputConverter;
 import com.example.springaizerotohero.dto.ChatMetadataResponse;
 import com.example.springaizerotohero.dto.StructuredAnswer;
 import org.springframework.ai.chat.client.ChatClient;
@@ -7,6 +11,8 @@ import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.EmptyRateLimit;
 import org.springframework.ai.chat.metadata.RateLimit;
 import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.converter.ListOutputConverter;
+import org.springframework.ai.converter.MapOutputConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -82,5 +88,26 @@ public class ChatService {
                 .entity(StructuredAnswer.class, spec -> spec
                         .useProviderStructuredOutput()
                         .validateSchema());
+    }
+
+    public StructuredAnswer structuredChatWithConverter(String message) {
+        return structuredChatClient.prompt()
+                .user(message)
+                .call()
+                .entity(new LenientJsonOutputConverter<>(StructuredAnswer.class));
+    }
+
+    public List<String> listWithConverter(String message) {
+        return structuredChatClient.prompt()
+                .user(message)
+                .call()
+                .entity(new ListOutputConverter());
+    }
+
+    public Map<String, Object> mapWithConverter(String message) {
+        return structuredChatClient.prompt()
+                .user(message)
+                .call()
+                .entity(new MapOutputConverter());
     }
 }

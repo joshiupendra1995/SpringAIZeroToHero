@@ -371,6 +371,49 @@ To opt in across calls, Spring AI also provides the `AdvisorParams.ENABLE_NATIVE
 
 Provider-native schema enforcement is separate from provider-specific JSON modes. For example, OpenAI offers JSON Object and JSON Schema response formats, Ollama has a `spring.ai.ollama.chat.format=json` option, Qxotic jinfer can constrain output with a grammar, and Mistral supports JSON Object and JSON Schema response formats. These options have provider-specific configuration and behavior; use the portable Spring AI switch when you want capability detection through the common API.
 
+## Spring AI Series — Day 10: Output Converters
+
+The `.entity(...)` API uses a `StructuredOutputConverter<T>` to turn model text into Java values. A converter supplies prompt instructions through `getFormat()` and parses the response with `convert(String)`. This is best-effort: a model can ignore the instructions or return inaccurate data. It is separate from tool calling, whose arguments are already structured.
+
+The project exposes three examples through [`ChatService`](./src/main/java/com/example/springaizerotohero/service/ChatService.java), all accepting a JSON request with a `message` field:
+
+```bash
+curl -X POST http://localhost:8080/api/chat/converters/bean \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explain what a Spring AI advisor does."}'
+
+curl -X POST http://localhost:8080/api/chat/converters/list \
+  -H "Content-Type: application/json" \
+  -d '{"message":"List five ice cream flavors."}'
+
+curl -X POST http://localhost:8080/api/chat/converters/map \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Return numbers 1 to 5 under the key numbers."}'
+```
+
+The bean endpoint uses a custom `StructuredOutputConverter<StructuredAnswer>`, the list endpoint uses `ListOutputConverter` for a comma-delimited list, and the map endpoint uses `MapOutputConverter` for a JSON object. The HTTP responses are serialized as JSON; the list converter's *model output* is comma-delimited text, not a general CSV parser.
+
+`BeanOutputConverter` generates a JSON Schema from a class or `ParameterizedTypeReference` and deserializes the response. It supports `@JsonPropertyOrder` to control schema property order. Spring AI 2.0 already cleans standalone Markdown code blocks and thinking tags by default. This project's [`LenientJsonOutputConverter`](./src/main/java/com/example/springaizerotohero/converter/LenientJsonOutputConverter.java) additionally extracts one JSON or unlabelled fenced block surrounded by prose, then delegates parsing to `BeanOutputConverter`. Multiple matching blocks are rejected as ambiguous; invalid JSON still fails rather than being silently accepted.
+
+The converter delegates both `getFormat()` and `getJsonSchema()` to the bean converter. A converter's non-empty schema allows `.entity(converter, spec -> spec.useProviderStructuredOutput().validateSchema())` to use the Day 8 and Day 9 reliability options where supported. However, validation occurs before conversion: prose or fences can fail validation before the custom converter gets to clean them. The bean endpoint deliberately omits those switches to demonstrate conversion of such responses; it does not guarantee schema conformance. Schema validation still cannot guarantee factual correctness.
+
+For a low-level `ChatModel`, supply the converter's instructions explicitly and convert the returned text yourself:
+
+```java
+var converter = new BeanOutputConverter<>(StructuredAnswer.class);
+var prompt = PromptTemplate.builder()
+        .template("Answer this request: {question}\n{format}")
+        .variables(Map.of("question", "Explain Spring AI", "format", converter.getFormat()))
+        .build().create();
+
+String text = chatModel.call(prompt).getResult().getOutput().getText();
+StructuredAnswer answer = converter.convert(text);
+```
+
+The abstract `AbstractConversionServiceOutputConverter` and `AbstractMessageOutputConverter` classes provide conversion infrastructure for other implementations, but do not prescribe format instructions. For YAML or another non-JSON format, implement `getFormat()` and a suitable parser in `convert()`. If the converter leaves `getJsonSchema()` at its default empty value, the native-output and schema-validation switches cannot use a schema from it. The direct `ChatModel` example above also does not automatically add the `ChatClient` validation advisor.
+
+See the [Spring AI structured output guide](https://docs.spring.io/spring-ai/reference/api/structured-output.html) for the converter API and additional examples.
+
 ## Get started
 
 The [concepts section](https://docs.spring.io/spring-ai/reference/concepts.html) provides a high-level overview of AI concepts and how they are represented in Spring AI.
